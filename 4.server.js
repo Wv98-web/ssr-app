@@ -46,3 +46,5 @@ app.on("error", function (err) {
 app.listen(3000, () => {
 	console.log("server start 3000");
 });
+
+// koa中 可以去丰富ctx 而且内部提供了一个中间处理过程， 提供了更好的错误处理

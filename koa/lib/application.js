@@ -43,6 +43,7 @@ class Application extends EventEmitter {
 		let index = -1;
 
 		const dispatch = (i) => {
+			console.log(index, i, "index i");
 			if (index <= i) {
 				return Promise.reject("next() call multiples times");
 			}
@@ -51,6 +52,7 @@ class Application extends EventEmitter {
 				return Promise.resolve();
 			}
 			let middleware = this.middlewares[i];
+			console.log(i + 1, "------");
 			try {
 				return Promise.resolve(
 					// next函数是 ()=>{dispatch(i+1)}
