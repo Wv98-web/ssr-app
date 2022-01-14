@@ -5,6 +5,8 @@ const response = {
 	},
 
 	set body(content) {
+		// 用户修改了body属性那么就会更改状态码
+		this.res.statusCode = 200;
 		this._body = content;
 	},
 

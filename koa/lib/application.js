@@ -2,19 +2,25 @@ const http = require("http");
 const context = require("./context");
 const request = require("./request");
 const response = require("./response");
+const EventEmitter = require("events");
 
 // 创建应用实例
-class Application {
+class Application extends EventEmitter {
 	constructor() {
+		super();
 		// this.context.__proto__ = context
 		// 第一层 保证每个应用之间不共享上下文
 		this.context = Object.create(context);
 		this.request = Object.create(request);
 		this.response = Object.create(response);
+
+		this.middlewares = [];
 	}
 
-	use(fn) {
-		this.fn = fn; // 函数先存起来，请求来了触发函数
+	use(middleware) {
+		// this.fn = fn; // 函数先存起来，请求来了触发函数
+
+		this.middlewares.push(middleware);
 	}
 
 	createContext(req, res) {
@@ -33,6 +39,36 @@ class Application {
 		return ctx;
 	}
 
+	compose(ctx) {
+		let index = -1;
+
+		const dispatch = (i) => {
+			if (index <= i) {
+				return Promise.reject("next() call multiples times");
+			}
+			index = i;
+			if (this.middlewares.length == i) {
+				return Promise.resolve();
+			}
+			let middleware = this.middlewares[i];
+			try {
+				return Promise.resolve(
+					// next函数是 ()=>{dispatch(i+1)}
+					middleware(ctx, () => {
+						dispatch(i + 1);
+					})
+				);
+			} catch (error) {
+				return Promise.reject(error);
+			}
+		};
+
+		return dispatch(0); // 我要执行第一个中间件
+
+		// 这里相当于 Promise1(Promise2(Promise3)).then()
+		// 将功能组合在一起，依次执行
+	}
+
 	// handleRequest(req, res) {
 	// 	console.log(this);
 	// }
@@ -41,9 +77,24 @@ class Application {
 
 		// ...
 		const ctx = this.createContext(req, res);
-		this.fn(ctx);
 
-		res.end(ctx.body); // 返回最终结果响应给用户
+		res.statusCode = 404;
+
+		this.compose(ctx)
+			.then(() => {
+				// 等待ctx赋值后响应给用户
+				let body = ctx.body;
+				if (body) {
+					res.end(ctx.body); // 返回最终结果响应给用户
+				} else {
+					res.end("not found");
+				}
+			})
+			.catch((err) => {
+				this.emit("error", err);
+			});
+
+		// this.fn(ctx);
 	};
 
 	listen() {
